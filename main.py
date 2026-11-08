@@ -5,7 +5,7 @@ router = APIRouter(prefix="/api")
 
 @router.get("/hello")
 def hello():
-    return {"message": "Hello from Terraform-deployed backend"}
+    return {"message": "Hello from Terraform-deployed backend version 2"}
 
 
 @router.get("/health")
