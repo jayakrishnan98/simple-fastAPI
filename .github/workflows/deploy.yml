@@ -1,0 +1,36 @@
+name: Build and deploy container
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        run: |
+          IMAGE=${{ steps.ecr.outputs.registry }}/simple-fastapi:latest
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+      - name: Deploy via SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids i-0ca30806d75740ad2 \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 730335500206.dkr.ecr.eu-north-1.amazonaws.com","docker pull 730335500206.dkr.ecr.eu-north-1.amazonaws.com/simple-fastapi:latest","docker rm -f api","docker run -d --name api --restart always -p 8000:8000 730335500206.dkr.ecr.eu-north-1.amazonaws.com/simple-fastapi:latest"]' \
+            --comment "Deploy container from GitHub Actions"
